@@ -112,7 +112,7 @@ class TimerInterceptorService : NotificationListenerService() {
             .setShortCriticalText("$title")
             .setRequestPromotedOngoing(true)
         
-        if (originalRemoteView != null) {
+        /*if (originalRemoteView != null) {
             // Применяем специальный стиль, который сохраняет системные элементы (иконку приложения, время)
             builder.setStyle(androidx.core.app.NotificationCompat.DecoratedCustomViewStyle()) 
             
@@ -121,7 +121,7 @@ class TimerInterceptorService : NotificationListenerService() {
             
             // Если перехватили и большой макет (развернутый), можно раскомментировать и установить его:
             // builder.setCustomBigContentView(originalBigRemoteView)
-        }
+        }*/
 
         // notify() с одним и тем же ID (8888) не создает новое уведомление, а обновляет старое
         notificationManager.notify(cloneNotificationId, builder.build())
