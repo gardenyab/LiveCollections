@@ -54,7 +54,7 @@ class TimerInterceptorService : NotificationListenerService() {
                 else -> null
             }
 
-            if (resultTime != null) {
+            if (true){
                 val cleanTime = resultTime.trim()
                 updateTime(cleanTime)
                 
