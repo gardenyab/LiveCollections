@@ -70,10 +70,8 @@ class TimerInterceptorService : NotificationListenerService() {
             // val bigContentView: RemoteViews? = notification.customBigContentView
             
             // 3. Экран для Heads-up (всплывающее сверху уведомление)
-            val headsUpView: RemoteViews? = notification.headsUpView
             val textsList = extractTextFromRemoteViews(collapsedView).takeIf { it.isNotEmpty() }
                 ?: extractTextFromRemoteViews(bigContentView).takeIf { it.isNotEmpty() }
-                ?: extractTextFromRemoteViews(headsUpView)
             
             // Достаем первую строку, либо null, если везде было пусто
             val text1 = textsList?.firstOrNull()
@@ -95,7 +93,7 @@ class TimerInterceptorService : NotificationListenerService() {
                 val smallIcon = notification.smallIcon // Получаем объект android.graphics.drawable.Icon
                 val iconCompat: IconCompat? = smallIcon?.let { IconCompat.createFromIcon(this, it) }
                 
-                showCloneNotification(text1, cleanTime, iconCompat, collapsedView ?: bigContentView ?: headsUpView)
+                showCloneNotification(text1, cleanTime, iconCompat, collapsedView ?: bigContentView)
             }
         }
     }
