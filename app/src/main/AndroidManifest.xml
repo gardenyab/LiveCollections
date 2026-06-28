@@ -29,6 +29,9 @@
         android:theme="@style/Theme.LiveCollections"
         android:name=".LiveCollections"
         tools:targetApi="31">
+        <intent-filter>
+            <action android:name="android.service.notification.NotificationListenerService" />
+        </intent-filter>
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
