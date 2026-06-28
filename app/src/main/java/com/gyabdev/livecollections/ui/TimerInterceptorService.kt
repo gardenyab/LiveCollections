@@ -1,16 +1,24 @@
 package com.gyabdev.livecollections.ui
 
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class TimerInterceptorService : NotificationListenerService() {
 
+    private val channelId = "timer_clone_channel"
+    private val cloneNotificationId = 8888 // Фиксированный ID для нашего клона
+
     companion object {
-        private val _timerTime = MutableStateFlow("Таймер не запущен")
+        private val _timerTime = MutableStateFlow("Тайmer не запущен")
         val timerTime: StateFlow<String> = _timerTime.asStateFlow()
         
         fun updateTime(newTime: String) {
@@ -18,48 +26,82 @@ class TimerInterceptorService : NotificationListenerService() {
         }
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
         val packageName = sbn?.packageName ?: return
 
-        // Проверяем часы Google
         if (packageName == "com.google.android.deskclock") {
             val notification = sbn.notification ?: return
             val extras = notification.extras ?: return
             
-            // Извлекаем вообще все текстовые поля, которые могут содержать время
-            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+            // Наш парсер текста из прошлого шага
+            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "Таймер"
             val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
-            val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
-            val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
+            val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            val firstLine = textLines?.firstOrNull()?.toString() ?: ""
+            val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString() ?: ""
 
-            // Ищем, где именно сейчас находятся цифры таймера (например: "04:59" или "Таймер - 00:15")
             val resultTime = when {
-                // Если время попало в основной текст
                 text.isNotEmpty() && text.any { it.isDigit() } -> text
-                // Если Google засунул время в подтекст (бывает на новых Android)
-                subText.isNotEmpty() && subText.any { it.isDigit() } -> subText
-                // Если время отображается в заголовке
+                firstLine.isNotEmpty() && firstLine.any { it.isDigit() } -> firstLine
+                infoText.isNotEmpty() && infoText.any { it.isDigit() } -> infoText
                 title.isNotEmpty() && title.any { it.isDigit() } -> title
-                // Резервный вариант из развернутого уведомления
-                bigText.isNotEmpty() && bigText.any { it.isDigit() } -> bigText
                 else -> null
             }
 
             if (resultTime != null) {
-                // Очистим текст от лишних системных символов, если они прилетят
-                updateTime(resultTime.trim())
-            } else {
-                // Если уведомление пришло, но цифр не нашли — выведем структуру для теста
-                updateTime("Поймали: Tl:$title | Tx:$text")
+                val cleanTime = resultTime.trim()
+                updateTime(cleanTime)
+                
+                // Каждую секунду вызываем обновление нашего уведомления-клона
+                showCloneNotification(title, cleanTime)
             }
         }
+    }
+
+    private fun showCloneNotification(title: String, time: String) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val builder = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("[Клон] $title") // Пометка, чтобы ты отличил его от оригинала
+            .setContentText(time)             // Сюда каждую секунду залетает новое время
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm) // Иконка будильника/таймера
+            .setPriority(NotificationCompat.PRIORITY_LOW)        // Чтобы телефон не вибрировал каждую секунду
+            .setOnlyAlertOnce(true)           // КРИТИЧЕСКИ ВАЖНО: обновляет текст без звука и вибрации
+            .setOngoing(true)                 // Нельзя смахнуть пальцем, пока идет таймер
+            .setAutoCancel(false)
+
+        // notify() с одним и тем же ID (8888) не создает новое уведомление, а обновляет старое
+        notificationManager.notify(cloneNotificationId, builder.build())
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         if (sbn?.packageName == "com.google.android.deskclock") {
             updateTime("Таймер остановлен")
+            
+            // Если оригинальный таймер удалили/выключили — удаляем и наш клон
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(cloneNotificationId)
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Клон Таймера",
+                NotificationManager.IMPORTANCE_LOW // Низкий приоритет, чтобы не спамить звуками
+            ).apply {
+                description = "Синхронный клон системного таймера"
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
         }
     }
 }
