@@ -72,6 +72,7 @@ fun MainScreen() {
     // Подписываемся на обновление таймера
     val currentTime by TimerInterceptorService.timerTime.collectAsState()
     val currentBody by TimerInterceptorService.messageBody.collectAsState()
+    val messageTime by TimerInterceptorService.mTime.collectAsState()
 
     Column {
         // Отображаем время таймера Google прямо в приложении
@@ -88,5 +89,6 @@ fun MainScreen() {
             Text("Дать разрешение на перехват")
         }
         Text(text="$currentBody")
+        Text(text="$messageTime")
     }
 }
