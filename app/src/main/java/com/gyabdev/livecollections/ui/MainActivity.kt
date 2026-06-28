@@ -45,9 +45,15 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainNavigation()
+                    MainScreen()
                 }
             }
         }
     }
+}
+
+
+@Composable
+fun MainScreen(modifier: Modifier) {
+    Text("Hi")
 }
