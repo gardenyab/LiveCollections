@@ -20,9 +20,14 @@ class TimerInterceptorService : NotificationListenerService() {
     companion object {
         private val _timerTime = MutableStateFlow("Тайmer не запущен")
         val timerTime: StateFlow<String> = _timerTime.asStateFlow()
+        private val _messageBody = MutableStateFlow("пусто пока")
+        val messageBody: StateFlow<String> = _messageBody.asStateFlow()
         
         fun updateTime(newTime: String) {
             _timerTime.value = newTime
+        }
+        fun updateBody(nbody: String) {
+            _messageBody.value = nbody
         }
     }
 
@@ -45,6 +50,8 @@ class TimerInterceptorService : NotificationListenerService() {
             val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             val firstLine = textLines?.firstOrNull()?.toString() ?: ""
             val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString() ?: ""
+            val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
+            
 
             val resultTime = title/*when {
                 text.isNotEmpty() && text.any { it.isDigit() } -> text
@@ -53,7 +60,7 @@ class TimerInterceptorService : NotificationListenerService() {
                 title.isNotEmpty() && title.any { it.isDigit() } -> title
                 else -> "жопа"
             }*/
-
+            updateBody("1. $title \n2. $text\n3. $textLines\n4. $infoText\n5. $subText")
             if (resultTime != null) {
                 val cleanTime = resultTime.trim()
                 updateTime(cleanTime)
