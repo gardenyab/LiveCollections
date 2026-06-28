@@ -29,6 +29,15 @@ import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.widget.Text
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
+import android.content.Intent
+import android.provider.Settings
+import com.gyabdev.livecollections.ui.TimerInterceptorService
+
 
 
 @AndroidEntryPoint
@@ -58,5 +67,18 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen() {
-    Text("Hi")
+    val currentTime by TimerInterceptorService.timerTime.collectAsState()
+
+    Column {
+        // Отображаем время таймера Google прямо в приложении
+        Text(text = "Осталось времени: $currentTime")
+
+        // Кнопка для отправки пользователя в настройки (надо нажать один раз при первом запуске)
+        Button(onClick = {
+            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+            context.startActivity(intent)
+        }) {
+            Text("Дать разрешение на перехват")
+        }
+    }
 }
