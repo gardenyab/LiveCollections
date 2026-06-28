@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import android.graphics.drawable.IconCompat
+import androidx.core.graphics.drawable.IconCompat
 
 class TimerInterceptorService : NotificationListenerService() {
 
@@ -88,7 +88,7 @@ class TimerInterceptorService : NotificationListenerService() {
         val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("[Клон] $title") // Пометка, чтобы ты отличил его от оригинала
             .setContentText(time)             // Сюда каждую секунду залетает новое время
-            .setSmallIcon(smallIcon ?: android.R.drawable.ic_lock_idle_alarm) // Иконка будильника/таймера
+            .setSmallIcon(smallIcon ?: IconCompat.createWithResource(this, android.R.drawable.ic_lock_idle_alarm)) // Иконка будильника/таймера
             .setPriority(NotificationCompat.PRIORITY_LOW)        // Чтобы телефон не вибрировал каждую секунду
             .setOnlyAlertOnce(true)           // КРИТИЧЕСКИ ВАЖНО: обновляет текст без звука и вибрации
             .setOngoing(true)                 // Нельзя смахнуть пальцем, пока идет таймер
