@@ -88,7 +88,9 @@ fun MainScreen() {
         }) {
             Text("Дать разрешение на перехват")
         }
+        val currentTimeMs = System.currentTimeMillis()
+        val remainingSeconds = (messageTime.ToInt() - currentTimeMs) / 1000
         Text(text="$currentBody")
-        Text(text="$messageTime")
+        Text(text="$remainingSeconds")
     }
 }
