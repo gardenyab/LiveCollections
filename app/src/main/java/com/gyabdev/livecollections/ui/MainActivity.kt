@@ -28,6 +28,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
