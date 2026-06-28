@@ -24,7 +24,7 @@ class TimerInterceptorService : NotificationListenerService() {
     private val cloneNotificationId = 8888 // Фиксированный ID для нашего клона
 
     companion object {
-        private val _timerTime = MutableStateFlow("Тайmer не запущен")
+        private val _timerTime = MutableStateFlow("Таймер не запущен")
         val timerTime: StateFlow<String> = _timerTime.asStateFlow()
         private val _messageBody = MutableStateFlow("пусто пока")
         val messageBody: StateFlow<String> = _messageBody.asStateFlow()
@@ -55,7 +55,6 @@ class TimerInterceptorService : NotificationListenerService() {
             val notification = sbn.notification ?: return
             val extras = notification.extras ?: return
             
-            // Наш парсер текста из прошлого шага
             val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString() ?: "Таймер"
             val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
             val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
@@ -64,39 +63,30 @@ class TimerInterceptorService : NotificationListenerService() {
             val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
             
             val collapsedView: RemoteViews? = notification.contentView 
-            // Или через публичное поле в современных API:
-            // val collapsedView: RemoteViews? = notification.customContentView
-            
-            // 2. Развёрнутый кастомный экран (обычно там плееры или расширенный трекинг)
             val bigContentView: RemoteViews? = notification.bigContentView
-            // Или:
-            // val bigContentView: RemoteViews? = notification.customBigContentView
             
-            // 3. Экран для Heads-up (всплывающее сверху уведомление)
-            val textsList = extractTextFromRemoteViews(collapsedView).takeIf { it.isNotEmpty() }
-                ?: extractTextFromRemoteViews(bigContentView).takeIf { it.isNotEmpty() }
+            // Используем новый, надежный способ рендеринга лайоута вместо старой рефлексии
+            val text1List = getTextViaLayoutRendering(collapsedView).takeIf { it.isNotEmpty() }
+                ?: getTextViaLayoutRendering(bigContentView)
             
-            // Достаем первую строку, либо null, если везде было пусто
-            val text1 = textsList?.firstOrNull()
-            val resultTime = title/*when {
-                text.isNotEmpty() && text.any { it.isDigit() } -> text
-                firstLine.isNotEmpty() && firstLine.any { it.isDigit() } -> firstLine
-                infoText.isNotEmpty() && infoText.any { it.isDigit() } -> infoText
-                title.isNotEmpty() && title.any { it.isDigit() } -> title
-                else -> "жопа"
-            }*/
+            val text1 = text1List.firstOrNull() ?: ""
+            val resultTime = title
+
             updateBody("1. $title \n2. $text\n3. $textLines\n4. $infoText\n5. $subText\n6. $text1")
             val dk = notification.`when` ?: 0
             updatenTime(dk)
+            
             if (resultTime != null) {
                 val cleanTime = resultTime.trim()
                 updateTime(cleanTime)
                 
-                // Каждую секунду вызываем обновление нашего уведомления-клона
-                val smallIcon = notification.smallIcon // Получаем объект android.graphics.drawable.Icon
+                val smallIcon = notification.smallIcon 
                 val iconCompat: IconCompat? = smallIcon?.let { IconCompat.createFromIcon(this, it) }
                 
-                showCloneNotification(getTextViaLayoutRendering(bigContentView ?: collapsedView) ?: "шо", cleanTime, iconCompat, collapsedView ?: bigContentView)
+                // Достаем первую строку из отрендеренного View (или фолбек "шо"), чтобы передать как String в заголовок клона
+                val renderedTitle = getTextViaLayoutRendering(bigContentView ?: collapsedView).firstOrNull() ?: "шо"
+                
+                showCloneNotification(renderedTitle, cleanTime, iconCompat, collapsedView ?: bigContentView)
             }
         }
     }
@@ -105,28 +95,16 @@ class TimerInterceptorService : NotificationListenerService() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val builder = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("$title") // Пометка, чтобы ты отличил его от оригинала
-            .setContentText(time)             // Сюда каждую секунду залетает новое время
-            .setSmallIcon(smallIcon ?: IconCompat.createWithResource(this, android.R.drawable.ic_lock_idle_alarm)) // Иконка будильника/таймера
-            .setPriority(NotificationCompat.PRIORITY_LOW)        // Чтобы телефон не вибрировал каждую секунду
-            .setOnlyAlertOnce(true)           // КРИТИЧЕСКИ ВАЖНО: обновляет текст без звука и вибрации
-            .setOngoing(true)                 // Нельзя смахнуть пальцем, пока идет таймер
+            .setContentTitle(title) 
+            .setContentText(time)             
+            .setSmallIcon(smallIcon ?: IconCompat.createWithResource(this, android.R.drawable.ic_lock_idle_alarm)) 
+            .setPriority(NotificationCompat.PRIORITY_LOW)        
+            .setOnlyAlertOnce(true)           
+            .setOngoing(true)                 
             .setAutoCancel(false)
-            .setShortCriticalText("$title")
+            .setShortCriticalText(title)
             .setRequestPromotedOngoing(true)
-        
-        /*if (originalRemoteView != null) {
-            // Применяем специальный стиль, который сохраняет системные элементы (иконку приложения, время)
-            builder.setStyle(androidx.core.app.NotificationCompat.DecoratedCustomViewStyle()) 
-            
-            // Передаем перехваченный макет для свернутого состояния
-            builder.setCustomContentView(originalRemoteView) 
-            
-            // Если перехватили и большой макет (развернутый), можно раскомментировать и установить его:
-            // builder.setCustomBigContentView(originalBigRemoteView)
-        }*/
 
-        // notify() с одним и тем же ID (8888) не создает новое уведомление, а обновляет старое
         notificationManager.notify(cloneNotificationId, builder.build())
     }
 
@@ -135,7 +113,6 @@ class TimerInterceptorService : NotificationListenerService() {
         if (sbn?.packageName == "com.google.android.deskclock") {
             updateTime("Таймер остановлен")
             
-            // Если оригинальный таймер удалили/выключили — удаляем и наш клон
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(cloneNotificationId)
         }
@@ -146,7 +123,7 @@ class TimerInterceptorService : NotificationListenerService() {
             val channel = NotificationChannel(
                 channelId,
                 "Клон Таймера",
-                NotificationManager.IMPORTANCE_LOW // Низкий приоритет, чтобы не спамить звуками
+                NotificationManager.IMPORTANCE_LOW 
             ).apply {
                 description = "Синхронный клон системного таймера"
             }
@@ -160,14 +137,13 @@ class TimerInterceptorService : NotificationListenerService() {
         if (remoteViews == null) return result
     
         try {
-            // Создаем временный контейнер в памяти
-            val context = this // Твой Service или Context
+            val context = this 
             val container = FrameLayout(context)
             
-            // Заставляем RemoteViews нарисовать себя внутри нашего контейнера
+            // Накатываем разметку во временный контейнер в памяти
             val inflatedView = remoteViews.apply(context, container)
             
-            // Рекурсивно собираем текст изо всех TextView
+            // Собираем текст
             getAllTextViews(inflatedView, result)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -175,8 +151,8 @@ class TimerInterceptorService : NotificationListenerService() {
         return result
     }
     
-    // Помощник, который обходит дерево View
-    private fun getAllTextViews(view: View, list: java.util.ArrayList<String> or MutableList<String>) {
+    // Исправлена сигнатура: убран синтаксический мусор 'or' и 'ArrayList'
+    private fun getAllTextViews(view: View, list: MutableList<String>) {
         if (view is TextView) {
             if (!view.text.isNullOrEmpty()) {
                 list.add(view.text.toString())
