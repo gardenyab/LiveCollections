@@ -23,7 +23,7 @@ class TimerInterceptorService : NotificationListenerService() {
         private val _messageBody = MutableStateFlow("пусто пока")
         val messageBody: StateFlow<String> = _messageBody.asStateFlow()
         private val _messageTime = MutableStateFlow(0)
-        val mTime: StateFlow<Int> = _messageTime.asStateFlow()
+        val mTime: StateFlow<Long> = _messageTime.asStateFlow()
         
         fun updateTime(newTime: String) {
             _timerTime.value = newTime
@@ -31,7 +31,7 @@ class TimerInterceptorService : NotificationListenerService() {
         fun updateBody(nbody: String) {
             _messageBody.value = nbody
         }
-        fun updatenTime(nbody: Int) {
+        fun updatenTime(nbody: Long) {
             _messageTime.value = nbody
         }
     }
