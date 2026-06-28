@@ -19,9 +19,9 @@ class TimerInterceptorService : NotificationListenerService() {
 
     companion object {
         private val _timerTime = MutableStateFlow("Тайmer не запущен")
-        val timerTime: StateFlow<String> = _timerTime.asStateFlow()
+        val timerTime: StateFlow<String?> = _timerTime.asStateFlow()
         
-        fun updateTime(newTime: String) {
+        fun updateTime(newTime: String?) {
             _timerTime.value = newTime
         }
     }
