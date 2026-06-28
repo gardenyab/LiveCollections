@@ -46,7 +46,7 @@ class TimerInterceptorService : NotificationListenerService() {
             val firstLine = textLines?.firstOrNull()?.toString() ?: ""
             val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString() ?: ""
 
-            val resultTime = text/*when {
+            val resultTime = title/*when {
                 text.isNotEmpty() && text.any { it.isDigit() } -> text
                 firstLine.isNotEmpty() && firstLine.any { it.isDigit() } -> firstLine
                 infoText.isNotEmpty() && infoText.any { it.isDigit() } -> infoText
