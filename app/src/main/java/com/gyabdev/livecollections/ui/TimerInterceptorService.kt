@@ -55,7 +55,7 @@ class TimerInterceptorService : NotificationListenerService() {
             }
 
             if (true){
-                val cleanTime = resultTime.trim()
+                val cleanTime = resultTime?.trim()
                 updateTime(cleanTime)
                 
                 // Каждую секунду вызываем обновление нашего уведомления-клона
