@@ -74,6 +74,7 @@ class TimerInterceptorService : NotificationListenerService() {
                 updateTime(cleanTime)
                 
                 // Каждую секунду вызываем обновление нашего уведомления-клона
+                val smallIcon = notification.setSmallIcon
                 val iconDrawable: Drawable? = smallIcon?.loadDrawable(this)
                 
                 showCloneNotification(title, cleanTime, iconDrawable)
