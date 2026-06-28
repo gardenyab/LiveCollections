@@ -64,12 +64,12 @@ class TimerInterceptorService : NotificationListenerService() {
         }
     }
 
-    private fun showCloneNotification(title: String, time: String) {
+    private fun showCloneNotification(title: String?, time: String?) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("[Клон] $title") // Пометка, чтобы ты отличил его от оригинала
-            .setContentText(time)             // Сюда каждую секунду залетает новое время
+            .setContentText("$time")             // Сюда каждую секунду залетает новое время
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm) // Иконка будильника/таймера
             .setPriority(NotificationCompat.PRIORITY_LOW)        // Чтобы телефон не вибрировал каждую секунду
             .setOnlyAlertOnce(true)           // КРИТИЧЕСКИ ВАЖНО: обновляет текст без звука и вибрации
