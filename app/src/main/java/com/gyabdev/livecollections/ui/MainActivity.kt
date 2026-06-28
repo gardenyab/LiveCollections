@@ -1,90 +1,107 @@
-/*
- * Copyright (C) 2022 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.gyabdev.livecollections.ui
 
-import android.content.Intent
-import android.os.Bundle
-import android.provider.Settings
-import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import com.gyabdev.livecollections.ui.theme.MyApplicationTheme
-import dagger.hilt.android.AndroidEntryPoint
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
+import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
-// Подключаем наш сервис (проверь, чтобы папка совпадала, если положил в services — добавь .services)
-import com.gyabdev.livecollections.ui.TimerInterceptorService
+class TimerInterceptorService : NotificationListenerService() {
 
-@AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+    private val channelId = "timer_clone_channel"
+    private val cloneNotificationId = 8888 // Фиксированный ID для нашего клона
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(
-                lightScrim = android.graphics.Color.TRANSPARENT,
-                darkScrim = android.graphics.Color.TRANSPARENT
-            )
-        )
-        super.onCreate(savedInstanceState)
-        setContent {
-            MyApplicationTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    MainScreen()
-                }
+    companion object {
+        private val _timerTime = MutableStateFlow("Тайmer не запущен")
+        val timerTime: StateFlow<String> = _timerTime.asStateFlow()
+        
+        fun updateTime(newTime: String) {
+            _timerTime.value = newTime
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+    }
+
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        super.onNotificationPosted(sbn)
+        val packageName = sbn?.packageName ?: return
+
+        if (packageName == "com.google.android.deskclock") {
+            val notification = sbn.notification ?: return
+            val extras = notification.extras ?: return
+            
+            // Наш парсер текста из прошлого шага
+            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "Таймер"
+            val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+            val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            val firstLine = textLines?.firstOrNull()?.toString() ?: ""
+            val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString() ?: ""
+
+            val resultTime = when {
+                text.isNotEmpty() && text.any { it.isDigit() } -> text
+                firstLine.isNotEmpty() && firstLine.any { it.isDigit() } -> firstLine
+                infoText.isNotEmpty() && infoText.any { it.isDigit() } -> infoText
+                title.isNotEmpty() && title.any { it.isDigit() } -> title
+                else -> null
+            }
+
+            if (resultTime != null) {
+                val cleanTime = resultTime.trim()
+                updateTime(cleanTime)
+                
+                // Каждую секунду вызываем обновление нашего уведомления-клона
+                showCloneNotification(title, cleanTime)
             }
         }
     }
-}
 
-@Composable
-fun MainScreen() {
-    // Получаем контекст внутри Compose для запуска Activity настроек
-    val context = LocalContext.current
-    
-    // Подписываемся на обновление таймера
-    val currentTime by TimerInterceptorService.timerTime.collectAsState()
+    private fun showCloneNotification(title: String, time: String) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-    Column {
-        // Отображаем время таймера Google прямо в приложении
-        Text(text = "Осталось времени: $currentTime")
+        val builder = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("[Клон] $title") // Пометка, чтобы ты отличил его от оригинала
+            .setContentText(time)             // Сюда каждую секунду залетает новое время
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm) // Иконка будильника/таймера
+            .setPriority(NotificationCompat.PRIORITY_LOW)        // Чтобы телефон не вибрировал каждую секунду
+            .setOnlyAlertOnce(true)           // КРИТИЧЕСКИ ВАЖНО: обновляет текст без звука и вибрации
+            .setOngoing(true)                 // Нельзя смахнуть пальцем, пока идет таймер
+            .setAutoCancel(false)
 
-        // Кнопка для отправки пользователя в настройки
-        Button(onClick = {
-            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
-                // Добавляем флаг, так как запускаем из контекста приложения, а не из Activity напрямую
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // notify() с одним и тем же ID (8888) не создает новое уведомление, а обновляет старое
+        notificationManager.notify(cloneNotificationId, builder.build())
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        super.onNotificationRemoved(sbn)
+        if (sbn?.packageName == "com.google.android.deskclock") {
+            updateTime("Таймер остановлен")
+            
+            // Если оригинальный таймер удалили/выключили — удаляем и наш клон
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(cloneNotificationId)
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Клон Таймера",
+                NotificationManager.IMPORTANCE_LOW // Низкий приоритет, чтобы не спамить звуками
+            ).apply {
+                description = "Синхронный клон системного таймера"
             }
-            context.startActivity(intent)
-        }) {
-            Text("Дать разрешение на перехват")
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
         }
     }
 }
