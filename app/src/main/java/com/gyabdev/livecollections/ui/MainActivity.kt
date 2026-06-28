@@ -57,6 +57,6 @@ class MainActivity : ComponentActivity() {
 
 
 @Composable
-fun MainScreen(modifier: Modifier) {
+fun MainScreen() {
     Text("Hi")
 }
