@@ -86,13 +86,14 @@ class TimerInterceptorService : NotificationListenerService() {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val builder = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("[Клон] $title") // Пометка, чтобы ты отличил его от оригинала
+            .setContentTitle("$title") // Пометка, чтобы ты отличил его от оригинала
             .setContentText(time)             // Сюда каждую секунду залетает новое время
             .setSmallIcon(smallIcon ?: IconCompat.createWithResource(this, android.R.drawable.ic_lock_idle_alarm)) // Иконка будильника/таймера
             .setPriority(NotificationCompat.PRIORITY_LOW)        // Чтобы телефон не вибрировал каждую секунду
             .setOnlyAlertOnce(true)           // КРИТИЧЕСКИ ВАЖНО: обновляет текст без звука и вибрации
             .setOngoing(true)                 // Нельзя смахнуть пальцем, пока идет таймер
             .setAutoCancel(false)
+            .setShortCriticalText("$title")
 
         // notify() с одним и тем же ID (8888) не создает новое уведомление, а обновляет старое
         notificationManager.notify(cloneNotificationId, builder.build())
