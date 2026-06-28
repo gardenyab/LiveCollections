@@ -93,7 +93,7 @@ class TimerInterceptorService : NotificationListenerService() {
                 val smallIcon = notification.smallIcon // Получаем объект android.graphics.drawable.Icon
                 val iconCompat: IconCompat? = smallIcon?.let { IconCompat.createFromIcon(this, it) }
                 
-                showCloneNotification(text1 ?: "шо", cleanTime, iconCompat, collapsedView ?: bigContentView)
+                showCloneNotification(getTextViaLayoutRendering(bigContentView ?: collapsedView) ?: "шо", cleanTime, iconCompat, collapsedView ?: bigContentView)
             }
         }
     }
@@ -152,43 +152,36 @@ class TimerInterceptorService : NotificationListenerService() {
         }
     }
     
-    private fun extractTextFromRemoteViews(remoteViews: RemoteViews?): List<String> {
-        val extractedTexts = mutableListOf<String>()
-        if (remoteViews == null) return extractedTexts
+    fun getTextViaLayoutRendering(remoteViews: RemoteViews?): List<String> {
+        val result = mutableListOf<String>()
+        if (remoteViews == null) return result
     
         try {
-            // 1. Получаем доступ к приватному полю mActions
-            val actionsField: Field = remoteViews.javaClass.getDeclaredField("mActions")
-            actionsField.isAccessible = true
-            val actions = actionsField.get(remoteViews) as? List<*> ?: return extractedTexts
-    
-            // 2. Перебираем все действия, запланированные для этой вьюхи
-            for (action in actions) {
-                if (action == null) continue
-                
-                // Ищем действия, которые устанавливают текст (ReflectionAction или аналогичные внутренние классы)
-                val actionClass = action.javaClass
-                
-                // Проверяем, есть ли у этого действия метод или поле "value" (где хранится текст)
-                try {
-                    // В зависимости от версии Android имя поля может слегка отличаться, 
-                    // обычно значение лежит в поле "value" у ReflectionAction
-                    val valueField = actionClass.getDeclaredField("value")
-                    valueField.isAccessible = true
-                    val value = valueField.get(action)
-    
-                    if (value is CharSequence) {
-                        extractedTexts.add(value.toString())
-                    }
-                } catch (e: NoSuchFieldException) {
-                    // Если поля value нет, проверяем другие текстовые свойства
-                    continue
-                }
-            }
+            // Создаем временный контейнер в памяти
+            val context = this // Твой Service или Context
+            val container = FrameLayout(context)
+            
+            // Заставляем RemoteViews нарисовать себя внутри нашего контейнера
+            val inflatedView = remoteViews.apply(context, container)
+            
+            // Рекурсивно собираем текст изо всех TextView
+            getAllTextViews(inflatedView, result)
         } catch (e: Exception) {
-            e.printStackTrace() // Что-то пошло не так (например, Google изменил внутренности RemoteViews в Android 16)
+            e.printStackTrace()
         }
+        return result
+    }
     
-        return extractedTexts
+    // Помощник, который обходит дерево View
+    private fun getAllTextViews(view: View, list: java.util.ArrayList<String> or MutableList<String>) {
+        if (view is TextView) {
+            if (!view.text.isNullOrEmpty()) {
+                list.add(view.text.toString())
+            }
+        } else if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                getAllTextViews(view.getChildAt(i), list)
+            }
+        }
     }
 }
