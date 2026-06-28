@@ -38,7 +38,7 @@ import com.gyabdev.livecollections.ui.theme.MyApplicationTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 // Подключаем наш сервис (проверь, чтобы папка совпадала, если положил в services — добавь .services)
-import com.gyabdev.livecollections.services.TimerInterceptorService
+import com.gyabdev.livecollections.ui.TimerInterceptorService
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
