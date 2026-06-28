@@ -22,8 +22,8 @@ class TimerInterceptorService : NotificationListenerService() {
         val timerTime: StateFlow<String> = _timerTime.asStateFlow()
         private val _messageBody = MutableStateFlow("пусто пока")
         val messageBody: StateFlow<String> = _messageBody.asStateFlow()
-        private val _messageTime = MutableStateFlow("нету времени")
-        val mTime: StateFlow<String> = _messageTime.asStateFlow()
+        private val _messageTime = MutableStateFlow(0)
+        val mTime: StateFlow<Int> = _messageTime.asStateFlow()
         
         fun updateTime(newTime: String) {
             _timerTime.value = newTime
@@ -31,7 +31,7 @@ class TimerInterceptorService : NotificationListenerService() {
         fun updateBody(nbody: String) {
             _messageBody.value = nbody
         }
-        fun updatenTime(nbody: String) {
+        fun updatenTime(nbody: Int) {
             _messageTime.value = nbody
         }
     }
@@ -66,8 +66,8 @@ class TimerInterceptorService : NotificationListenerService() {
                 else -> "жопа"
             }*/
             updateBody("1. $title \n2. $text\n3. $textLines\n4. $infoText\n5. $subText")
-            val dk = notification.`when`
-            updatenTime("$dk")
+            val dk = notification.`when` ?: 0
+            updatenTime(dk)
             if (resultTime != null) {
                 val cleanTime = resultTime.trim()
                 updateTime(cleanTime)
