@@ -19,9 +19,9 @@ class TimerInterceptorService : NotificationListenerService() {
 
     companion object {
         private val _timerTime = MutableStateFlow("Тайmer не запущен")
-        val timerTime: StateFlow<String?> = _timerTime.asStateFlow()
+        val timerTime: StateFlow<String> = _timerTime.asStateFlow()
         
-        fun updateTime(newTime: String?) {
+        fun updateTime(newTime: String) {
             _timerTime.value = newTime
         }
     }
@@ -51,11 +51,11 @@ class TimerInterceptorService : NotificationListenerService() {
                 firstLine.isNotEmpty() && firstLine.any { it.isDigit() } -> firstLine
                 infoText.isNotEmpty() && infoText.any { it.isDigit() } -> infoText
                 title.isNotEmpty() && title.any { it.isDigit() } -> title
-                else -> null
+                else -> "жопа"
             }
 
-            if (true){
-                val cleanTime = resultTime?.trim()
+            if (resultTime != null) {
+                val cleanTime = resultTime.trim()
                 updateTime(cleanTime)
                 
                 // Каждую секунду вызываем обновление нашего уведомления-клона
@@ -64,12 +64,12 @@ class TimerInterceptorService : NotificationListenerService() {
         }
     }
 
-    private fun showCloneNotification(title: String?, time: String?) {
+    private fun showCloneNotification(title: String, time: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("[Клон] $title") // Пометка, чтобы ты отличил его от оригинала
-            .setContentText("$time")             // Сюда каждую секунду залетает новое время
+            .setContentText(time)             // Сюда каждую секунду залетает новое время
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm) // Иконка будильника/таймера
             .setPriority(NotificationCompat.PRIORITY_LOW)        // Чтобы телефон не вибрировал каждую секунду
             .setOnlyAlertOnce(true)           // КРИТИЧЕСКИ ВАЖНО: обновляет текст без звука и вибрации
