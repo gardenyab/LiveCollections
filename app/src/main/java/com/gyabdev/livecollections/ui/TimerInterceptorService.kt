@@ -51,7 +51,7 @@ class TimerInterceptorService : NotificationListenerService() {
             val extras = notification.extras ?: return
             
             // Наш парсер текста из прошлого шага
-            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "Таймер"
+            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString() ?: "Таймер"
             val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
             val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             val firstLine = textLines?.firstOrNull()?.toString() ?: ""
