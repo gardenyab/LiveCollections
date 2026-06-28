@@ -110,6 +110,7 @@ class TimerInterceptorService : NotificationListenerService() {
             .setOngoing(true)                 // Нельзя смахнуть пальцем, пока идет таймер
             .setAutoCancel(false)
             .setShortCriticalText("$title")
+            .setRequestPromotedOngoing(true)
         
         if (originalRemoteView != null) {
             // Применяем специальный стиль, который сохраняет системные элементы (иконку приложения, время)
