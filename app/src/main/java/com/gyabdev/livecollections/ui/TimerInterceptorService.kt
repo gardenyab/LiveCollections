@@ -66,7 +66,8 @@ class TimerInterceptorService : NotificationListenerService() {
                 else -> "жопа"
             }*/
             updateBody("1. $title \n2. $text\n3. $textLines\n4. $infoText\n5. $subText")
-            updatenTime("${notification.when}")
+            var dk = notification.when ?: 0
+            updatenTime("$dk")
             if (resultTime != null) {
                 val cleanTime = resultTime.trim()
                 updateTime(cleanTime)
