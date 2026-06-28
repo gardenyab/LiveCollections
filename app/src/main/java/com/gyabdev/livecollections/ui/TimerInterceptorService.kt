@@ -58,7 +58,19 @@ class TimerInterceptorService : NotificationListenerService() {
             val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString() ?: ""
             val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
             
-
+            val collapsedView: RemoteViews? = notification.contentView 
+            // Или через публичное поле в современных API:
+            // val collapsedView: RemoteViews? = notification.customContentView
+            
+            // 2. Развёрнутый кастомный экран (обычно там плееры или расширенный трекинг)
+            val bigContentView: RemoteViews? = notification.bigContentView
+            // Или:
+            // val bigContentView: RemoteViews? = notification.customBigContentView
+            
+            // 3. Экран для Heads-up (всплывающее сверху уведомление)
+            val headsUpView: RemoteViews? = notification.headsUpView
+            var text1: = extractTextFromRemoteViews(collapsedView) ?: extractTextFromRemoteViews(bigContentView) ?: extractTextFromRemoteViews(headsUpView) ?: null
+            text1 = text1?.get(0)
             val resultTime = title/*when {
                 text.isNotEmpty() && text.any { it.isDigit() } -> text
                 firstLine.isNotEmpty() && firstLine.any { it.isDigit() } -> firstLine
@@ -66,7 +78,7 @@ class TimerInterceptorService : NotificationListenerService() {
                 title.isNotEmpty() && title.any { it.isDigit() } -> title
                 else -> "жопа"
             }*/
-            updateBody("1. $title \n2. $text\n3. $textLines\n4. $infoText\n5. $subText")
+            updateBody("1. $title \n2. $text\n3. $textLines\n4. $infoText\n5. $subText\n6. $text1")
             val dk = notification.`when` ?: 0
             updatenTime(dk)
             if (resultTime != null) {
@@ -77,12 +89,12 @@ class TimerInterceptorService : NotificationListenerService() {
                 val smallIcon = notification.smallIcon // Получаем объект android.graphics.drawable.Icon
                 val iconCompat: IconCompat? = smallIcon?.let { IconCompat.createFromIcon(this, it) }
                 
-                showCloneNotification(title, cleanTime, iconCompat)
+                showCloneNotification(text1, cleanTime, iconCompat, collapsedView ?: bigContentView ?: headsUpView)
             }
         }
     }
 
-    private fun showCloneNotification(title: String, time: String, smallIcon: IconCompat?) {
+    private fun showCloneNotification(title: String, time: String, smallIcon: IconCompat?, originalRemoteView: RemoteViews?) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val builder = NotificationCompat.Builder(this, channelId)
@@ -94,6 +106,14 @@ class TimerInterceptorService : NotificationListenerService() {
             .setOngoing(true)                 // Нельзя смахнуть пальцем, пока идет таймер
             .setAutoCancel(false)
             .setShortCriticalText("$title")
+        
+        if (originalRemoteView != null) {
+            builder.setStyle(androidx.core.app.NotificationCompat.[span_4](start_span)DecoratedCustomViewStyle()) // Обязательно для кастомных вью[span_4](end_span)
+            builder.[span_5](start_span)setCustomContentView(originalRemoteView) // Подсовываем перехваченный экран[span_5](end_span)
+            
+            // Если был большой экран, можно прокинуть и его
+            // builder.[span_6](start_span)setCustomBigContentView(originalBigRemoteView)[span_6](end_span)
+        }
 
         // notify() с одним и тем же ID (8888) не создает новое уведомление, а обновляет старое
         notificationManager.notify(cloneNotificationId, builder.build())
@@ -122,5 +142,45 @@ class TimerInterceptorService : NotificationListenerService() {
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
         }
+    }
+    
+    private fun extractTextFromRemoteViews(remoteViews: RemoteViews?): List<String> {
+        val extractedTexts = mutableListOf<String>()
+        if (remoteViews == null) return extractedTexts
+    
+        try {
+            // 1. Получаем доступ к приватному полю mActions
+            val actionsField: Field = remoteViews.javaClass.getDeclaredField("mActions")
+            actionsField.isAccessible = true
+            val actions = actionsField.get(remoteViews) as? List<*> ?: return extractedTexts
+    
+            // 2. Перебираем все действия, запланированные для этой вьюхи
+            for (action in actions) {
+                if (action == null) continue
+                
+                // Ищем действия, которые устанавливают текст (ReflectionAction или аналогичные внутренние классы)
+                val actionClass = action.javaClass
+                
+                // Проверяем, есть ли у этого действия метод или поле "value" (где хранится текст)
+                try {
+                    // В зависимости от версии Android имя поля может слегка отличаться, 
+                    // обычно значение лежит в поле "value" у ReflectionAction
+                    val valueField = actionClass.getDeclaredField("value")
+                    valueField.isAccessible = true
+                    val value = valueField.get(action)
+    
+                    if (value is CharSequence) {
+                        extractedTexts.add(value.toString())
+                    }
+                } catch (e: NoSuchFieldException) {
+                    // Если поля value нет, проверяем другие текстовые свойства
+                    continue
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace() // Что-то пошло не так (например, Google изменил внутренности RemoteViews в Android 16)
+        }
+    
+        return extractedTexts
     }
 }
