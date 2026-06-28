@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import androidx.core.graphics.drawable.IconCompat
+import android.widget.RemoteViews
+import java.lang.reflect.Field
 
 class TimerInterceptorService : NotificationListenerService() {
 
@@ -108,11 +110,14 @@ class TimerInterceptorService : NotificationListenerService() {
             .setShortCriticalText("$title")
         
         if (originalRemoteView != null) {
-            builder.setStyle(androidx.core.app.NotificationCompat.[span_4](start_span)DecoratedCustomViewStyle()) // Обязательно для кастомных вью[span_4](end_span)
-            builder.[span_5](start_span)setCustomContentView(originalRemoteView) // Подсовываем перехваченный экран[span_5](end_span)
+            // Применяем специальный стиль, который сохраняет системные элементы (иконку приложения, время)
+            builder.setStyle(androidx.core.app.NotificationCompat.DecoratedCustomViewStyle()) 
             
-            // Если был большой экран, можно прокинуть и его
-            // builder.[span_6](start_span)setCustomBigContentView(originalBigRemoteView)[span_6](end_span)
+            // Передаем перехваченный макет для свернутого состояния
+            builder.setCustomContentView(originalRemoteView) 
+            
+            // Если перехватили и большой макет (развернутый), можно раскомментировать и установить его:
+            // builder.setCustomBigContentView(originalBigRemoteView)
         }
 
         // notify() с одним и тем же ID (8888) не создает новое уведомление, а обновляет старое
