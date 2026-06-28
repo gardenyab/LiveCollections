@@ -71,8 +71,12 @@ class TimerInterceptorService : NotificationListenerService() {
             
             // 3. Экран для Heads-up (всплывающее сверху уведомление)
             val headsUpView: RemoteViews? = notification.headsUpView
-            var text1: = extractTextFromRemoteViews(collapsedView) ?: extractTextFromRemoteViews(bigContentView) ?: extractTextFromRemoteViews(headsUpView) ?: null
-            text1 = text1?.get(0)
+            val textsList = extractTextFromRemoteViews(collapsedView).takeIf { it.isNotEmpty() }
+                ?: extractTextFromRemoteViews(bigContentView).takeIf { it.isNotEmpty() }
+                ?: extractTextFromRemoteViews(headsUpView)
+            
+            // Достаем первую строку, либо null, если везде было пусто
+            val text1 = textsList?.firstOrNull()
             val resultTime = title/*when {
                 text.isNotEmpty() && text.any { it.isDigit() } -> text
                 firstLine.isNotEmpty() && firstLine.any { it.isDigit() } -> firstLine
