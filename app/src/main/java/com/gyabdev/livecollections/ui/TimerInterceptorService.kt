@@ -93,7 +93,7 @@ class TimerInterceptorService : NotificationListenerService() {
                 val smallIcon = notification.smallIcon // Получаем объект android.graphics.drawable.Icon
                 val iconCompat: IconCompat? = smallIcon?.let { IconCompat.createFromIcon(this, it) }
                 
-                showCloneNotification(text1, cleanTime, iconCompat, collapsedView ?: bigContentView)
+                showCloneNotification(text1 ?: "шо", cleanTime, iconCompat, collapsedView ?: bigContentView)
             }
         }
     }
