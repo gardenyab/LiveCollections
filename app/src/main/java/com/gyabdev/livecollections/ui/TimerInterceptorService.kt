@@ -116,7 +116,7 @@ class TimerInterceptorService : NotificationListenerService() {
         }
     }
 
-    private fun showCloneNotification(
+        private fun showCloneNotification(
         title: String, 
         time: String, 
         smallIcon: IconCompat?, 
@@ -135,10 +135,16 @@ class TimerInterceptorService : NotificationListenerService() {
             .setShortCriticalText(title) 
             .setRequestPromotedOngoing(true)
 
-        // Исправлено: конвертируем каждую кнопку перед добавлением
+        // Ручная сборка экшенов на основе оригинальных полей
         if (actions != null) {
             for (action in actions) {
-                val compatAction = NotificationCompat.Action.fromAndroidAction(action)
+                val iconCompat = action.getIcon()?.let { IconCompat.createFromIcon(this, it) }
+                val compatAction = NotificationCompat.Action.Builder(
+                    iconCompat,
+                    action.title,
+                    action.actionIntent
+                ).build()
+                
                 builder.addAction(compatAction)
             }
         }
@@ -146,7 +152,7 @@ class TimerInterceptorService : NotificationListenerService() {
         // Всегда перезаписываем одно и то же уведомление с ID 8888
         notificationManager.notify(cloneNotificationId, builder.build())
     }
-
+    
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
         val packageName = sbn?.packageName ?: return
