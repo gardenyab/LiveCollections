@@ -135,9 +135,11 @@ class TimerInterceptorService : NotificationListenerService() {
             .setShortCriticalText(title) 
             .setRequestPromotedOngoing(true)
 
+        // Исправлено: конвертируем каждую кнопку перед добавлением
         if (actions != null) {
             for (action in actions) {
-                builder.addAction(action)
+                val compatAction = NotificationCompat.Action.fromAndroidAction(action)
+                builder.addAction(compatAction)
             }
         }
 
@@ -150,8 +152,6 @@ class TimerInterceptorService : NotificationListenerService() {
         val packageName = sbn?.packageName ?: return
         
         // ПРОВЕРКА ПО ИМЕНИ ПАКЕТА ПРИ УДАЛЕНИИ:
-        // Клон удаляется только в том случае, если удаляемое оригинальное сообщение 
-        // принадлежит тому же приложению, которое последним обновило наш фиксированный клон.
         if (packageName == lastProcessedPackage) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(cloneNotificationId)
