@@ -53,9 +53,15 @@ class TimerInterceptorService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
         val packageName = sbn?.packageName ?: return
+        
+        // 1. ИГНОРИРУЕМ СОБСТВЕННЫЙ ПАКЕТ ПРИЛОЖЕНИЯ (Защита от бесконечного цикла)
+        if (packageName == "com.gyabdev.livecollections") {
+            return
+        }
+
         val notification = sbn.notification ?: return
         
-        // 1. ПРОВЕРКА НА ТИХИЕ (SILENT) УВЕДОМЛЕНИЯ
+        // 2. ПРОВЕРКА НА ТИХИЕ (SILENT) УВЕДОМЛЕНИЯ
         val isSilentPriority = notification.priority <= NotificationCompat.PRIORITY_LOW
         val isGroupSummary = (notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
 
@@ -111,7 +117,6 @@ class TimerInterceptorService : NotificationListenerService() {
             val renderedTitle = getTextViaLayoutRendering(bigContentView ?: collapsedView).firstOrNull() ?: title
             val originalActions = notification.actions
             
-            // Передаем text вместо несуществующей time, вызывая принудительное обновление
             showCloneNotification(renderedTitle, text, iconCompat, originalActions)
         }
     }
@@ -124,12 +129,17 @@ class TimerInterceptorService : NotificationListenerService() {
     ) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+        // 3. РЕШЕНИЕ ПРОБЛЕМЫ С ОБНОВЛЕНИЕМ КНОПОК:
+        // Перед тем как отправить обновленное уведомление, мы принудительно очищаем старый билд 
+        // из памяти шторки. Это заставит Android нарисовать новые кнопки (например, "Старт" вместо "Пауза")
+        builder.clearActions() 
+
         val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle(title) 
-            .setContentText(text) // Исправлено: теперь подставляется переданная строка текста            
+            .setContentText(text)             
             .setSmallIcon(smallIcon ?: IconCompat.createWithResource(this, android.R.drawable.ic_lock_idle_alarm)) 
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)        
-            .setOnlyAlertOnce(true) // Чтобы телефон не пищал при каждом обновлении          
+            .setOnlyAlertOnce(true)          
             .setOngoing(true)                 
             .setAutoCancel(false)
             .setShortCriticalText(title) 
@@ -149,7 +159,7 @@ class TimerInterceptorService : NotificationListenerService() {
             }
         }
 
-        // Вызов notify() с одинаковым ID затирает старое уведомление новым контентом
+        // Всегда перезаписываем одно и то же уведомление с ID 8888
         notificationManager.notify(cloneNotificationId, builder.build())
     }
     
