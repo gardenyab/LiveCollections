@@ -132,7 +132,7 @@ class TimerInterceptorService : NotificationListenerService() {
         // 3. РЕШЕНИЕ ПРОБЛЕМЫ С ОБНОВЛЕНИЕМ КНОПОК:
         // Перед тем как отправить обновленное уведомление, мы принудительно очищаем старый билд 
         // из памяти шторки. Это заставит Android нарисовать новые кнопки (например, "Старт" вместо "Пауза")
-        builder.clearActions() 
+         
 
         val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle(title) 
@@ -144,7 +144,7 @@ class TimerInterceptorService : NotificationListenerService() {
             .setAutoCancel(false)
             .setShortCriticalText(title) 
             .setRequestPromotedOngoing(true)
-
+        builder.clearActions()
         // Ручная сборка экшенов на основе оригинальных полей
         if (actions != null) {
             for (action in actions) {
