@@ -111,14 +111,14 @@ class TimerInterceptorService : NotificationListenerService() {
             val renderedTitle = getTextViaLayoutRendering(bigContentView ?: collapsedView).firstOrNull() ?: title
             val originalActions = notification.actions
             
-            // Вызываем отправку с фиксированным ID 8888
-            showCloneNotification(renderedTitle, cleanTime, iconCompat, originalActions)
+            // Передаем text вместо несуществующей time, вызывая принудительное обновление
+            showCloneNotification(renderedTitle, text, iconCompat, originalActions)
         }
     }
 
-        private fun showCloneNotification(
+    private fun showCloneNotification(
         title: String, 
-        time: String, 
+        text: String, 
         smallIcon: IconCompat?, 
         actions: Array<out Notification.Action>?
     ) {
@@ -126,10 +126,10 @@ class TimerInterceptorService : NotificationListenerService() {
 
         val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle(title) 
-            .setContentText(time)             
+            .setContentText(text) // Исправлено: теперь подставляется переданная строка текста            
             .setSmallIcon(smallIcon ?: IconCompat.createWithResource(this, android.R.drawable.ic_lock_idle_alarm)) 
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)        
-            .setOnlyAlertOnce(true)           
+            .setOnlyAlertOnce(true) // Чтобы телефон не пищал при каждом обновлении          
             .setOngoing(true)                 
             .setAutoCancel(false)
             .setShortCriticalText(title) 
@@ -149,7 +149,7 @@ class TimerInterceptorService : NotificationListenerService() {
             }
         }
 
-        // Всегда перезаписываем одно и то же уведомление с ID 8888
+        // Вызов notify() с одинаковым ID затирает старое уведомление новым контентом
         notificationManager.notify(cloneNotificationId, builder.build())
     }
     
