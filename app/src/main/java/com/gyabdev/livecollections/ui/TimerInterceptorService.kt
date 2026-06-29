@@ -21,10 +21,10 @@ import android.view.View
 class TimerInterceptorService : NotificationListenerService() {
 
     private val channelId = "timer_clone_channel"
-    private val cloneNotificationId = 8888 
+    private val cloneNotificationId = 8888 // Фиксированный одинаковый ID для всех клонов
 
-    // Храним время последнего обработанного апдейта в памяти сервиса
-    private var lastProcessedWhen: Long = 0L
+    // Переменная для отслеживания пакета последнего обработанного уведомления
+    private var lastProcessedPackage: String? = null
 
     companion object {
         private val _timerTime = MutableStateFlow("Таймер не запущен")
@@ -53,54 +53,66 @@ class TimerInterceptorService : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
         val packageName = sbn?.packageName ?: return
+        val notification = sbn.notification ?: return
+        
+        // 1. ПРОВЕРКА НА ТИХИЕ (SILENT) УВЕДОМЛЕНИЯ
+        val isSilentPriority = notification.priority <= NotificationCompat.PRIORITY_LOW
+        val isGroupSummary = (notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
 
-        if (packageName == "com.google.android.deskclock") {
-            val notification = sbn.notification ?: return
-            
-            // Проверка на обновление: если 'when' совпадает с прошлым, ничего не делаем
-            val currentWhen = notification.`when`
-            if (currentWhen == lastProcessedWhen && currentWhen != 0L) {
-                return 
-            }
-            lastProcessedWhen = currentWhen
-            
-            val extras = notification.extras ?: return
-            
-            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() 
-                ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString() 
-                ?: "Таймер"
-            val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
-            val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
-            val firstLine = textLines?.firstOrNull()?.toString() ?: ""
-            val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString() ?: ""
-            val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
-            
-            val collapsedView: RemoteViews? = notification.contentView 
-            val bigContentView: RemoteViews? = notification.bigContentView
-            
-            val text1List = getTextViaLayoutRendering(collapsedView).takeIf { it.isNotEmpty() }
-                ?: getTextViaLayoutRendering(bigContentView)
-            
-            val text1 = text1List.firstOrNull() ?: ""
-            val resultTime = title
+        if (isSilentPriority || isGroupSummary) {
+            return 
+        }
 
-            updateBody("1. $title \n2. $text\n3. $textLines\n4. $infoText\n5. $subText\n6. $text1")
-            updatenTime(currentWhen)
-            
-            if (resultTime != null) {
-                val cleanTime = resultTime.trim()
-                updateTime(cleanTime)
-                
-                val smallIcon = notification.smallIcon 
-                val iconCompat: IconCompat? = smallIcon?.let { IconCompat.createFromIcon(this, it) }
-                
-                val renderedTitle = getTextViaLayoutRendering(bigContentView ?: collapsedView).firstOrNull() ?: "Таймер"
-                
-                // Достаем оригинальные кнопки уведомления
-                val originalActions = notification.actions
-                
-                showCloneNotification(renderedTitle, cleanTime, iconCompat, originalActions)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val rankingMap = currentRanking
+            val ranking = Ranking()
+            if (rankingMap != null && rankingMap.getRanking(sbn.key, ranking)) {
+                if (ranking.importance < NotificationManager.IMPORTANCE_DEFAULT) {
+                    return 
+                }
             }
+        }
+
+        // Сохраняем имя пакета, который сейчас создал/обновил уведомление
+        lastProcessedPackage = packageName
+
+        val extras = notification.extras ?: return
+        
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() 
+            ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString() 
+            ?: "Уведомление"
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+        val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+        val firstLine = textLines?.firstOrNull()?.toString() ?: ""
+        val infoText = extras.getCharSequence(Notification.EXTRA_INFO_TEXT)?.toString() ?: ""
+        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
+        
+        val collapsedView: RemoteViews? = notification.contentView 
+        val bigContentView: RemoteViews? = notification.bigContentView
+        
+        val text1List = getTextViaLayoutRendering(collapsedView).takeIf { it.isNotEmpty() }
+            ?: getTextViaLayoutRendering(bigContentView)
+        
+        val text1 = text1List.firstOrNull() ?: ""
+        val resultTime = title
+
+        updateBody("Пакет: $packageName\n1. $title \n2. $text\n3. $textLines\n4. $infoText\n5. $subText\n6. $text1")
+        
+        val currentWhen = notification.`when`
+        updatenTime(currentWhen)
+        
+        if (resultTime != null) {
+            val cleanTime = resultTime.trim()
+            updateTime(cleanTime)
+            
+            val smallIcon = notification.smallIcon 
+            val iconCompat: IconCompat? = smallIcon?.let { IconCompat.createFromIcon(this, it) }
+            
+            val renderedTitle = getTextViaLayoutRendering(bigContentView ?: collapsedView).firstOrNull() ?: title
+            val originalActions = notification.actions
+            
+            // Вызываем отправку с фиксированным ID 8888
+            showCloneNotification(renderedTitle, cleanTime, iconCompat, originalActions)
         }
     }
 
@@ -116,31 +128,34 @@ class TimerInterceptorService : NotificationListenerService() {
             .setContentTitle(title) 
             .setContentText(time)             
             .setSmallIcon(smallIcon ?: IconCompat.createWithResource(this, android.R.drawable.ic_lock_idle_alarm)) 
-            .setPriority(NotificationCompat.PRIORITY_LOW)        
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)        
             .setOnlyAlertOnce(true)           
             .setOngoing(true)                 
             .setAutoCancel(false)
-            .setShortCriticalText(title) // Сюда уходит тайтл приложения (renderedTitle)
+            .setShortCriticalText(title) 
             .setRequestPromotedOngoing(true)
 
-        // Копируем кнопки один в один, включая их PendingIntent
         if (actions != null) {
             for (action in actions) {
                 builder.addAction(action)
             }
         }
 
+        // Всегда перезаписываем одно и то же уведомление с ID 8888
         notificationManager.notify(cloneNotificationId, builder.build())
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
-        if (sbn?.packageName == "com.google.android.deskclock") {
-            updateTime("Таймер остановлен")
-            lastProcessedWhen = 0L // Сбрасываем кэш времени
-            
+        val packageName = sbn?.packageName ?: return
+        
+        // ПРОВЕРКА ПО ИМЕНИ ПАКЕТА ПРИ УДАЛЕНИИ:
+        // Клон удаляется только в том случае, если удаляемое оригинальное сообщение 
+        // принадлежит тому же приложению, которое последним обновило наш фиксированный клон.
+        if (packageName == lastProcessedPackage) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(cloneNotificationId)
+            lastProcessedPackage = null
         }
     }
 
@@ -148,10 +163,10 @@ class TimerInterceptorService : NotificationListenerService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Клон Таймера",
-                NotificationManager.IMPORTANCE_LOW 
+                "Клон Уведомлений",
+                NotificationManager.IMPORTANCE_DEFAULT 
             ).apply {
-                description = "Синхронный клон системного таймера"
+                description = "Синхронные точные копии активных уведомлений"
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
