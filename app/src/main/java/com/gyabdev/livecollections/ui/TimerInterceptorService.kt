@@ -21,7 +21,10 @@ import android.view.View
 class TimerInterceptorService : NotificationListenerService() {
 
     private val channelId = "timer_clone_channel"
-    private val cloneNotificationId = 8888 // Фиксированный ID для нашего клона
+    private val cloneNotificationId = 8888 
+
+    // Храним время последнего обработанного апдейта в памяти сервиса
+    private var lastProcessedWhen: Long = 0L
 
     companion object {
         private val _timerTime = MutableStateFlow("Таймер не запущен")
@@ -51,11 +54,21 @@ class TimerInterceptorService : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         val packageName = sbn?.packageName ?: return
 
-        if (true) {
+        if (packageName == "com.google.android.deskclock") {
             val notification = sbn.notification ?: return
+            
+            // Проверка на обновление: если 'when' совпадает с прошлым, ничего не делаем
+            val currentWhen = notification.`when`
+            if (currentWhen == lastProcessedWhen && currentWhen != 0L) {
+                return 
+            }
+            lastProcessedWhen = currentWhen
+            
             val extras = notification.extras ?: return
             
-            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString() ?: "Таймер"
+            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() 
+                ?: extras.getCharSequence(Notification.EXTRA_TITLE_BIG)?.toString() 
+                ?: "Таймер"
             val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
             val textLines = extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
             val firstLine = textLines?.firstOrNull()?.toString() ?: ""
@@ -65,7 +78,6 @@ class TimerInterceptorService : NotificationListenerService() {
             val collapsedView: RemoteViews? = notification.contentView 
             val bigContentView: RemoteViews? = notification.bigContentView
             
-            // Используем новый, надежный способ рендеринга лайоута вместо старой рефлексии
             val text1List = getTextViaLayoutRendering(collapsedView).takeIf { it.isNotEmpty() }
                 ?: getTextViaLayoutRendering(bigContentView)
             
@@ -73,8 +85,7 @@ class TimerInterceptorService : NotificationListenerService() {
             val resultTime = title
 
             updateBody("1. $title \n2. $text\n3. $textLines\n4. $infoText\n5. $subText\n6. $text1")
-            val dk = notification.`when` ?: 0
-            updatenTime(dk)
+            updatenTime(currentWhen)
             
             if (resultTime != null) {
                 val cleanTime = resultTime.trim()
@@ -83,15 +94,22 @@ class TimerInterceptorService : NotificationListenerService() {
                 val smallIcon = notification.smallIcon 
                 val iconCompat: IconCompat? = smallIcon?.let { IconCompat.createFromIcon(this, it) }
                 
-                // Достаем первую строку из отрендеренного View (или фолбек "шо"), чтобы передать как String в заголовок клона
-                val renderedTitle = getTextViaLayoutRendering(bigContentView ?: collapsedView).firstOrNull() ?: "шо"
+                val renderedTitle = getTextViaLayoutRendering(bigContentView ?: collapsedView).firstOrNull() ?: "Таймер"
                 
-                showCloneNotification(renderedTitle, cleanTime, iconCompat, collapsedView ?: bigContentView)
+                // Достаем оригинальные кнопки уведомления
+                val originalActions = notification.actions
+                
+                showCloneNotification(renderedTitle, cleanTime, iconCompat, originalActions)
             }
         }
     }
 
-    private fun showCloneNotification(title: String, time: String, smallIcon: IconCompat?, originalRemoteView: RemoteViews?) {
+    private fun showCloneNotification(
+        title: String, 
+        time: String, 
+        smallIcon: IconCompat?, 
+        actions: Array<out Notification.Action>?
+    ) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         val builder = NotificationCompat.Builder(this, channelId)
@@ -102,8 +120,15 @@ class TimerInterceptorService : NotificationListenerService() {
             .setOnlyAlertOnce(true)           
             .setOngoing(true)                 
             .setAutoCancel(false)
-            .setShortCriticalText(title)
+            .setShortCriticalText(title) // Сюда уходит тайтл приложения (renderedTitle)
             .setRequestPromotedOngoing(true)
+
+        // Копируем кнопки один в один, включая их PendingIntent
+        if (actions != null) {
+            for (action in actions) {
+                builder.addAction(action)
+            }
+        }
 
         notificationManager.notify(cloneNotificationId, builder.build())
     }
@@ -112,6 +137,7 @@ class TimerInterceptorService : NotificationListenerService() {
         super.onNotificationRemoved(sbn)
         if (sbn?.packageName == "com.google.android.deskclock") {
             updateTime("Таймер остановлен")
+            lastProcessedWhen = 0L // Сбрасываем кэш времени
             
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancel(cloneNotificationId)
@@ -139,11 +165,7 @@ class TimerInterceptorService : NotificationListenerService() {
         try {
             val context = this 
             val container = FrameLayout(context)
-            
-            // Накатываем разметку во временный контейнер в памяти
             val inflatedView = remoteViews.apply(context, container)
-            
-            // Собираем текст
             getAllTextViews(inflatedView, result)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -151,7 +173,6 @@ class TimerInterceptorService : NotificationListenerService() {
         return result
     }
     
-    // Исправлена сигнатура: убран синтаксический мусор 'or' и 'ArrayList'
     private fun getAllTextViews(view: View, list: MutableList<String>) {
         if (view is TextView) {
             if (!view.text.isNullOrEmpty()) {
